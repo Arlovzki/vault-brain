@@ -1,0 +1,9 @@
+# Copy to terraform.tfvars and fill in. terraform.tfvars is gitignored.
+
+project_name = "vault-brain-demo"
+profile      = "default"          # the AWS CLI profile to deploy with
+owner_email  = "you@example.com"  # the single user who signs in to the vault
+region       = "us-east-1"        # choose the AWS region for this stack
+
+# Optional overrides:
+# vault_tz = "UTC"

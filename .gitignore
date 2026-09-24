@@ -1,0 +1,35 @@
+# Terraform
+**/.terraform/*
+*.tfstate
+*.tfstate.*
+*.tfstate.*.backup
+crash.log
+crash.*.log
+override.tf
+override.tf.json
+*_override.tf
+*_override.tf.json
+.terraformrc
+terraform.rc
+
+# Real variable values (secrets and account-specific names). The example is tracked.
+*.tfvars
+*.tfvars.json
+!terraform.tfvars.example
+
+# Terraform's Lambda zip, rebuilt on every apply
+terraform/build/
+
+# Node
+node_modules/
+dist/
+dist-tsc/
+
+# Never commit secrets
+*.pem
+*.key
+.env
+.env.*
+!.env.example
+
+.DS_Store
