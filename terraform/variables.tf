@@ -13,6 +13,16 @@ variable "profile" {
   type        = string
 }
 
+variable "expected_account_id" {
+  description = "Verified AWS account that the provider is allowed to manage. Generated locally by npm run bootstrap-state."
+  type        = string
+
+  validation {
+    condition     = can(regex("^[0-9]{12}$", var.expected_account_id))
+    error_message = "expected_account_id must be the verified 12-digit AWS account ID."
+  }
+}
+
 variable "owner_email" {
   description = "Email of the single Cognito user who owns this vault. Becomes the sign-in username."
   type        = string

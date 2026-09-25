@@ -1,9 +1,9 @@
 # The MCP server: a Lambda bundled from ../mcp-server/dist, fronted by an HTTP API.
-# Build the bundle first:  cd ../mcp-server && npm ci && npm run build
-# (scripts/deploy.sh does this in the right order.)
+# The root `npm run deploy` command installs dependencies and builds this bundle
+# before Terraform creates the archive.
 
 # Static fallback bearer, used by smoke tests and any client that cannot do OAuth.
-# Stored in local state, which is why terraform.tfstate is a secret.
+# Stored in remote Terraform state, which is why state-bucket access is secret.
 resource "random_password" "mcp_bearer" {
   length  = 40
   special = false
@@ -60,7 +60,7 @@ resource "aws_apigatewayv2_api" "mcp" {
     allow_methods = ["GET", "POST", "OPTIONS"]
     # The MCP Streamable HTTP transport sends MCP-Protocol-Version (and a session id)
     # on every post-initialize request; a browser client's preflight fails without
-    # these in the allowlist, and smoke.sh (curl, no preflight) would not catch it.
+    # these in the allowlist. The Node smoke test also checks the protected route.
     allow_headers = ["authorization", "content-type", "mcp-protocol-version", "mcp-session-id"]
     max_age       = 300
   }

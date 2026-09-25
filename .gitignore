@@ -11,6 +11,9 @@ override.tf.json
 *_override.tf.json
 .terraformrc
 terraform.rc
+*.tfbackend
+*.tfplan
+**/backend.generated.tf
 
 # Real variable values (secrets and account-specific names). The example is tracked.
 *.tfvars

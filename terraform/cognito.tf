@@ -66,8 +66,8 @@ resource "aws_cognito_user_pool_client" "mcp" {
 }
 
 # The single vault owner. random_password only SEEDS a password at create time;
-# Cognito never reads it back, so the live password is set out-of-band with
-# `aws cognito-idp admin-set-user-password` (deploy.sh prints the command).
+# Cognito never reads it back, so the Node workshop runner sets the live password
+# through the AWS SDK after Terraform finishes.
 # ignore_changes stops `terraform apply` from ever touching the real password.
 resource "random_password" "owner" {
   length           = 20

@@ -21,7 +21,7 @@ AWS Lambda: MCP server
 Private, versioned S3     Amazon Cognito
         ^
         |
-        | optional S3 sync
+        | S3 sync in the live workshop
         |
 Obsidian with Remotely Save
 ```
@@ -35,10 +35,11 @@ is no shared application service or tenant database.
 | --- | --- |
 | API Gateway | Exposes OAuth discovery, dynamic client registration, and the MCP endpoint over HTTPS. |
 | Lambda | Implements JSON-RPC, authentication, tool discovery, validation, and note operations. |
-| Amazon S3 | Stores the Markdown vault. Versioning retains replaced and deleted object versions for 30 days. |
+| Amazon S3 vault | Stores the Markdown vault. Versioning retains replaced and deleted object versions for 30 days. |
 | Amazon Cognito | Provides the owner account, hosted sign-in, OAuth authorization code flow, and PKCE support. |
-| Sync IAM user | Gives the optional Obsidian sync plugin access to only the vault bucket. |
-| Terraform | Creates the stack and stores deployment state locally. |
+| Sync IAM user | Gives Obsidian's Remotely Save plugin access to only the vault bucket. |
+| Terraform | Creates the stack and reads or writes deployment state through a separate protected S3 backend. |
+| S3 state backend | Stores versioned, encrypted Terraform state and the short-lived native lockfile. Lambda and the sync user cannot access it. |
 
 ## How an AI client chooses a tool
 
@@ -97,22 +98,56 @@ objects. Noncurrent versions expire after 30 days. Soft deletion is still the
 preferred everyday path because recovery from `.trash/` does not require AWS
 console or CLI access.
 
-Obsidian is an optional local view and editor. Remotely Save reads and writes the
-same S3 bucket, so MCP clients and Obsidian converge on the same Markdown files.
+Obsidian is the local view and editor in the live workshop. Remotely Save reads
+and writes the same S3 bucket, so MCP clients and Obsidian converge on the same
+Markdown files. Sync is not required for the MCP server to operate on its own.
 
 ## Deployment and state
 
-`scripts/deploy.sh` performs the deployment in this order:
+The deployment control plane is separate from the MCP request path:
 
-1. Install dependencies and build the Lambda bundle.
-2. Initialize and apply Terraform.
-3. Seed `vault-starter/` only when the bucket has no Markdown notes.
-4. Print the MCP endpoint, sign-in details, and optional sync configuration.
+```text
+Operator and cross-platform runner
+              |
+              | verified AWS profile
+              v
+Private S3 state bucket
+  | bootstrap/terraform.tfstate
+  | main/terraform.tfstate
+  | main/terraform.tfstate.tflock while Terraform is running
+              |
+              | Terraform plans and applies
+              v
+Vault Brain application stack
+```
 
-Terraform state is intentionally local for this personal stack. The state file
-contains sensitive values, including the static bearer token, sync access key,
-and Cognito bootstrap password. Store it securely, exclude it from version
-control, and include it in an encrypted backup.
+Run `npm run bootstrap-state` before the application deployment. A small,
+separate Terraform root creates the state bucket locally, migrates its own state
+into that bucket, then initializes the main root against a different object key.
+The bucket is versioned, encrypted with S3-managed AES-256, blocked from public
+access, restricted to TLS, and guarded by `prevent_destroy`. Native S3 state
+locking requires Terraform 1.10 or newer. No DynamoDB lock table is used.
+
+The root `npm run deploy` command uses the cross-platform Node workshop runner
+and performs the deployment in this order:
+
+1. Install locked dependencies, reconnect to the remote backend, build the
+   Lambda bundle, and rerun strict preflight checks.
+2. Confirm the exact AWS account, create a saved plan, and verify that the plan
+   matches the confirmed account, profile, and region.
+3. Require typed approval, recheck the live AWS identity, and apply that saved
+   plan.
+4. Seed `vault-starter/` only when the bucket has no Markdown notes.
+5. Set the permanent Cognito password through hidden input and print the values
+   needed for client and Obsidian setup.
+
+The remote main state contains sensitive values, including the static bearer
+token, sync access key, and Cognito bootstrap password. S3 bucket access is
+therefore privileged access. Generated backend configuration identifies the
+bucket, key, region, profile, and verified account, but it never contains AWS
+credentials and is excluded from version control. An ignored generated variable
+file also constrains the AWS provider to the verified backend account. A normal
+application destroy leaves the state backend protected.
 
 ## Trust boundaries and limitations
 
@@ -134,7 +169,8 @@ control, and include it in an encrypted backup.
 ```text
 mcp-server/       TypeScript Lambda and MCP tool implementation
 terraform/        AWS infrastructure and configuration variables
+state-bootstrap/  Protected S3 backend infrastructure and its independent state
 vault-starter/    Seed Markdown files
-scripts/          Deployment and smoke-test helpers
+scripts/          Cross-platform workshop runner and compatibility wrappers
 docs/             Public design and architecture notes
 ```

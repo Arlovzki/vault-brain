@@ -52,6 +52,11 @@ output "region" {
 }
 
 output "aws_profile" {
-  description = "Profile this stack was applied with. deploy.sh and smoke.sh reuse it for their AWS CLI calls."
+  description = "Profile this stack was applied with. The cross-platform workshop runner reuses it for AWS calls."
   value       = var.profile
+}
+
+output "aws_account_id" {
+  description = "AWS account that owns this stack. The workshop runner compares it with the active profile."
+  value       = data.aws_caller_identity.current.account_id
 }

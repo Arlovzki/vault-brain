@@ -1,0 +1,18 @@
+{
+  "name": "vault-brain-workshop",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "engines": {
+    "node": ">=22.0.0"
+  },
+  "scripts": {
+    "preflight": "node scripts/workshop.mjs preflight",
+    "configure": "node scripts/workshop.mjs configure",
+    "bootstrap-state": "node scripts/workshop.mjs bootstrap-state",
+    "deploy": "node scripts/workshop.mjs deploy",
+    "set-password": "node scripts/workshop.mjs set-password",
+    "smoke": "node scripts/workshop.mjs smoke",
+    "test": "node --test scripts/workshop.test.mjs"
+  }
+}

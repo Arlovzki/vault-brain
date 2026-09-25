@@ -1,33 +1,26 @@
 terraform {
-  required_version = ">= 1.5"
+  required_version = ">= 1.10, < 2.0"
 
   required_providers {
     aws = {
       source  = "hashicorp/aws"
-      version = ">= 5.0"
+      version = ">= 5.0, < 7.0"
     }
     random = {
       source  = "hashicorp/random"
-      version = ">= 3.0"
+      version = ">= 3.0, < 4.0"
     }
     archive = {
       source  = "hashicorp/archive"
-      version = ">= 2.0"
+      version = ">= 2.0, < 3.0"
     }
   }
-
-  # State is deliberately LOCAL (terraform.tfstate next to these files).
-  # vault-brain is a template: one stack per person, in that person's own AWS
-  # account, applied from that person's laptop. A shared remote backend would
-  # need a bootstrap bucket per deployment. Protect terraform.tfstate because it
-  # contains the bearer token, sync secret key, and Cognito bootstrap password.
-  # Losing it removes Terraform's resource mapping and can require imports or
-  # credential rotation before the stack can be managed safely again.
 }
 
 provider "aws" {
-  region  = var.region
-  profile = var.profile
+  region              = var.region
+  profile             = var.profile
+  allowed_account_ids = [var.expected_account_id]
 
   default_tags {
     tags = {
