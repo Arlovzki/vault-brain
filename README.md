@@ -239,11 +239,15 @@ The final command should show `vault-brain` as connected.
 
 OpenAI's current [MCP connection guide](https://developers.openai.com/plugins/deploy/connect-chatgpt) documents this developer-mode flow:
 
-1. Open ChatGPT Settings, then Security and login.
-2. Enable Developer mode. Availability can depend on account or workspace policy.
-3. Open ChatGPT Plugins and add a new connection.
-4. Name it `Vault Brain` and paste the public endpoint, including `/mcp`.
-5. Complete the Cognito sign-in, review the discovered tools, and add Vault Brain to a new conversation.
+1. Open ChatGPT Plugins and choose Add, then Create MCP App. If Add is not
+   available, check Settings, Security and login for Developer mode. The control
+   can depend on the account or workspace policy.
+2. Name it `Vault Brain`. Select Server URL under Connection, paste the public
+   endpoint including `/mcp`, and choose OAuth authentication.
+3. Read the custom-server warning, acknowledge it only for your own endpoint,
+   and create the connection.
+4. Complete the Cognito sign-in, review the discovered tools, and add Vault Brain
+   to a new conversation.
 
 Product labels can move over time, but the connection still needs the public HTTPS MCP endpoint and browser-based OAuth login.
 
