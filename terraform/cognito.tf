@@ -68,7 +68,8 @@ resource "aws_cognito_user_pool_client" "mcp" {
 # The single vault owner. random_password only SEEDS a password at create time;
 # Cognito never reads it back, so the Node workshop runner sets the live password
 # through the AWS SDK after Terraform finishes.
-# ignore_changes stops `terraform apply` from ever touching the real password.
+# ignore_changes stops later applies from touching the live password or the
+# one-time invitation choice used only when the owner is created.
 resource "random_password" "owner" {
   length           = 20
   special          = true
@@ -78,6 +79,9 @@ resource "random_password" "owner" {
 resource "aws_cognito_user" "owner" {
   user_pool_id = aws_cognito_user_pool.vault.id
   username     = var.owner_email
+  # The deploy runner sets a permanent password moments later. Do not email a
+  # temporary invitation password that will no longer work after deployment.
+  message_action = "SUPPRESS"
 
   attributes = {
     email          = var.owner_email
@@ -87,6 +91,6 @@ resource "aws_cognito_user" "owner" {
   password = random_password.owner.result
 
   lifecycle {
-    ignore_changes = [password]
+    ignore_changes = [password, message_action]
   }
 }

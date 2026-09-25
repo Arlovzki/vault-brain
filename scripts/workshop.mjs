@@ -1288,7 +1288,7 @@ async function setPermanentPassword(context = null) {
 
   let password;
   while (true) {
-    const first = await askSecret("New Vault Brain password: ");
+    const first = await askSecret("New permanent Vault Brain sign-in password: ");
     const errors = [];
     if (first.length < 12) errors.push("at least 12 characters");
     if (!/[a-z]/.test(first)) errors.push("a lowercase letter");
@@ -1335,6 +1335,7 @@ async function setPermanentPassword(context = null) {
     client.destroy();
   }
   line("PASS", `Permanent Cognito password set for ${email}.`, colors.green);
+  console.log("Use this password for browser sign-in. Ignore any earlier Cognito invitation email.");
 }
 
 export function s3ListingHasMarkdown(listing) {

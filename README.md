@@ -189,11 +189,15 @@ It performs the deployment in this order:
    unchanged. Non-Markdown objects do not block the starter seed.
 8. Asks for the permanent Cognito password twice with hidden input. The password
    is sent directly to Cognito and is not printed or placed in shell history.
+   This is the password to use at the browser sign-in page.
 9. Prints the MCP endpoint and the settings needed for the remaining steps.
 
 Use at least 12 printable ASCII characters with lowercase letters, uppercase
 letters, and numbers. Terraform creates a generated bootstrap password in
-remote state, so keep access to the state bucket tightly scoped.
+remote state, so keep access to the state bucket tightly scoped. The template
+suppresses Cognito's temporary-password invitation email because that password
+is replaced during deployment. If an older deployment sent an invitation, do
+not use its temporary password.
 
 If the AWS resources deploy but the password step fails, retry only that private
 step:
@@ -224,7 +228,10 @@ runner prints the unique marker to search for in `+Inbox/`.
 ## 6. Connect an MCP client
 
 Use the endpoint printed by `npm run deploy`. It must include the final `/mcp`
-path. Complete the Cognito sign-in when the client opens a browser.
+path. When the client opens Cognito in your browser, sign in with the
+`owner_email` from `terraform/terraform.tfvars` and the permanent password you
+entered during `npm run deploy`. Do not use a temporary password from an older
+Cognito invitation email.
 
 ### Claude Code
 
@@ -328,9 +335,12 @@ Set these values in `terraform/terraform.tfvars`:
 
 **The vault appears empty.** Confirm that deployment seeded the starter notes. If you use Obsidian, run Remotely Save and verify that `.md` objects exist in the configured bucket.
 
-**Cognito sign-in fails.** If deployment reported that its password step failed,
-run `npm run set-password`. It reads the profile, region, user pool, and owner
-email from the saved configuration and Terraform outputs.
+**Cognito sign-in fails.** Use the owner email and the permanent password you
+entered during deployment, not a temporary password from an invitation email.
+If you forgot the permanent password, use **Forgot password?** on the Cognito
+sign-in page with your verified owner email. If deployment reported that its
+password step failed, run `npm run set-password`. It reads the profile, region,
+user pool, and owner email from the saved configuration and Terraform outputs.
 
 **A client cannot register its callback.** Confirm that the callback uses HTTPS on an allowed client host, or localhost for a CLI client. If the callback limit is full, inspect the Cognito app client before removing stale URLs.
 
