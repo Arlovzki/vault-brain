@@ -713,7 +713,7 @@ function migrateState({ directory, backendConfig, localStatePath, expected, labe
   line("PASS", `${label} state migrated and verified in S3.`, colors.green);
 }
 
-function parseOptions(argv) {
+export function parseOptions(argv) {
   const options = { fix: false, profile: "", client: "" };
   for (let index = 0; index < argv.length; index += 1) {
     const arg = argv[index];
@@ -726,8 +726,8 @@ function parseOptions(argv) {
       index += 1;
     } else if (arg === "--client") {
       const value = argv[index + 1];
-      if (!value || !["claude", "chatgpt"].includes(value)) {
-        throw new CliError("--client must be claude or chatgpt.", 2);
+      if (!value || !["claude", "claude-web", "chatgpt", "claude-code"].includes(value)) {
+        throw new CliError("--client must be claude, claude-web, chatgpt, or claude-code.", 2);
       }
       options.client = value;
       index += 1;
@@ -887,16 +887,18 @@ async function preflight(options = {}, mode = {}) {
 
   if (!skipClient) {
     if (options.client === "chatgpt") {
-      check("Open ChatGPT Plugins and verify Add > Create MCP App is available to this account.");
-    } else {
+      check("In ChatGPT web, verify this account can add a custom remote MCP connection. Account or workspace access cannot be checked here.");
+    } else if (options.client === "claude" || options.client === "claude-web") {
+      check("In Claude web, verify Customize > Connectors > Add custom connector is available. Account access cannot be checked here.");
+    } else if (options.client === "claude-code") {
       const claude = commandVersion("claude");
       if (claude.ok) {
         pass(`Claude Code detected: ${claude.versionText.split(/\r?\n/)[0]}`);
-      } else if (options.client === "claude") {
-        fail("Claude Code was selected but its claude command is missing.");
       } else {
-        check("Claude Code was not detected. Verify ChatGPT Plugins > Add > Create MCP App if ChatGPT is your client.");
+        fail("Claude Code was selected but its claude command is missing.");
       }
+    } else {
+      check("In Claude web or ChatGPT web, verify your account can add a custom remote MCP connection. Browser access cannot be checked here.");
     }
   }
 
@@ -1730,7 +1732,7 @@ function help() {
   console.log(`Vault Brain workshop runner
 
 Usage:
-  npm run preflight -- [--profile NAME] [--client claude|chatgpt] [--fix]
+  npm run preflight -- [--profile NAME] [--client claude|claude-web|chatgpt|claude-code] [--fix]
   npm run configure
   npm run bootstrap-state
   npm run deploy

@@ -7,7 +7,7 @@ Each deployment is a single-user stack in that person's AWS account. The live wo
 ## How it works
 
 ```text
-ChatGPT, Claude Code, or another MCP client
+Claude web, ChatGPT web, or another MCP client
                     |
             HTTPS with OAuth
                     |
@@ -52,7 +52,7 @@ The server limits MCP file access to Markdown notes, excludes Obsidian configura
 - Terraform 1.10 or newer
 - Node.js 22 and npm
 - AWS permissions to manage IAM, S3, Lambda, API Gateway, Cognito, and CloudWatch Logs
-- At least one MCP-capable client, such as ChatGPT or Claude Code
+- At least one account that can add a custom remote MCP connection in Claude web or ChatGPT web. Check this in the browser before the workshop; account and workspace controls may differ.
 - Obsidian and the Remotely Save community plugin for the live workshop's two-way sync activity
 
 The workshop runner is written in Node.js. The same `npm run` commands work in
@@ -67,8 +67,8 @@ cd vault-brain
 npm run preflight -- --fix --profile workshop --client claude
 ```
 
-Replace `workshop` with the name of your AWS CLI profile. If ChatGPT is your
-workshop client, use:
+Replace `workshop` with the name of your AWS CLI profile. `--client claude`
+means Claude web, not Claude Code. If ChatGPT web is your workshop client, use:
 
 ```bash
 npm run preflight -- --fix --profile workshop --client chatgpt
@@ -88,9 +88,11 @@ The options have narrow purposes:
 - `--profile workshop` selects the named AWS profile for this check. Before the
   configuration file exists, it lets preflight show the account ID and ARN that
   the profile resolves to. It does not save or guess a profile.
-- `--client claude` verifies that the Claude Code command is installed.
-  `--client chatgpt` gives the manual check for ChatGPT Developer mode and
-  Plugins because browser account access cannot be verified from the terminal.
+- `--client claude` (or `--client claude-web`) reminds you to verify that Claude
+  web can add a custom connector. `--client chatgpt` reminds you to verify that
+  ChatGPT web can add a custom remote MCP connection. The runner marks either
+  browser check as `CHECK`, never an automatic `PASS`, because it cannot inspect
+  your account. `--client claude-code` checks the optional Claude Code command.
 
 Read the displayed AWS account ID and ARN. Do not continue unless they belong
 to the personal account you intend to use.
@@ -124,7 +126,9 @@ npm run preflight -- --client claude
 ```
 
 Use `--client chatgpt` instead when that is your chosen client. This second run
-should end with `READY`, followed by `Next: npm run bootstrap-state`.
+should end with `READY`, followed by `Next: npm run bootstrap-state`. `READY`
+does not clear the browser `CHECK`: confirm that the connector control is
+available before relying on that client during the workshop.
 
 ## 3. Create the remote state backend
 
@@ -231,9 +235,42 @@ Use the endpoint printed by `npm run deploy`. It must include the final `/mcp`
 path. When the client opens Cognito in your browser, sign in with the
 `owner_email` from `terraform/terraform.tfvars` and the permanent password you
 entered during `npm run deploy`. Do not use a temporary password from an older
-Cognito invitation email.
+Cognito invitation email. Claude web and ChatGPT web are the two live workshop
+paths. You need one of them, not Claude Code.
 
-### Claude Code
+### Claude web
+
+Anthropic's [custom connector guide](https://support.claude.com/en/articles/11175166-get-started-with-custom-connectors-using-remote-mcp) documents the remote MCP flow:
+
+1. Open Claude web, then Customize > Connectors > `+` > Add custom connector.
+   If this control is unavailable, check your account or workspace permissions.
+2. Name the connector `Vault Brain` and paste the public endpoint including
+   `/mcp`. Add it, then select Connect.
+3. Complete the Cognito sign-in. In a new chat, open `+` > Connectors and enable
+   Vault Brain for that conversation.
+
+### ChatGPT web
+
+OpenAI's [MCP connection guide](https://developers.openai.com/plugins/deploy/connect-chatgpt) documents this developer-mode flow:
+
+1. In ChatGPT web, open Settings > Security and login and enable Developer mode.
+   If it is unavailable, check the account or workspace policy.
+2. Open ChatGPT Plugins and select `+`. Name the connection `Vault Brain`, then
+   enter the public server URL including `/mcp` under Connection.
+3. Review the custom-server warning, create the connection, and complete the
+   Cognito sign-in when prompted. Review the tools ChatGPT discovers.
+4. Start a new chat and add Vault Brain from the tools menu for that conversation.
+
+The labels in either web client may change. The connection still needs your
+public HTTPS `/mcp` endpoint and browser-based OAuth login.
+
+Test the connected client with:
+
+> Before changing anything, read this vault's rules and tell me what each top-level folder is for.
+
+The answer should be grounded in `System/schema.md`.
+
+### Optional: Claude Code
 
 Claude Code's [MCP guide](https://code.claude.com/docs/en/mcp) documents remote HTTP servers, OAuth login, and fixed callback ports. Add Vault Brain at user scope:
 
@@ -244,28 +281,6 @@ claude mcp list
 ```
 
 The final command should show `vault-brain` as connected.
-
-### ChatGPT
-
-OpenAI's current [MCP connection guide](https://developers.openai.com/plugins/deploy/connect-chatgpt) documents this developer-mode flow:
-
-1. Open ChatGPT Plugins and choose Add, then Create MCP App. If Add is not
-   available, check Settings, Security and login for Developer mode. The control
-   can depend on the account or workspace policy.
-2. Name it `Vault Brain`. Select Server URL under Connection, paste the public
-   endpoint including `/mcp`, and choose OAuth authentication.
-3. Read the custom-server warning, acknowledge it only for your own endpoint,
-   and create the connection.
-4. Complete the Cognito sign-in, review the discovered tools, and add Vault Brain
-   to a new conversation.
-
-Product labels can move over time, but the connection still needs the public HTTPS MCP endpoint and browser-based OAuth login.
-
-Test either client with:
-
-> Before changing anything, read this vault's rules and tell me what each top-level folder is for.
-
-The answer should be grounded in `System/schema.md`.
 
 ## 7. Sync the vault to Obsidian
 
@@ -295,6 +310,10 @@ Bucket:   <VAULT_BUCKET>
 - Run Check Connectivity, then sync. `+Inbox/welcome.md` and `System/schema.md` should appear.
 
 Never include access keys, passwords, static bearer tokens, or Terraform state in screenshots, logs, issues, or chat messages.
+
+## Bonus: capture Claude Code and Codex sessions
+
+The optional [session-capture hook starter](examples/session-capture/) shows how to save one immutable, metadata-only Markdown receipt from either coding agent into your local Obsidian vault's `+Inbox/`. It runs only for a project root you explicitly allow. It is not installed by cloning this repo, and it does not read a transcript, copy replies, or write directly to S3. You can add your own summary in Obsidian or capture a separate curated note through MCP. Remotely Save can then sync the local note through the same vault setup above.
 
 ## Security and limitations
 

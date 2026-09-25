@@ -13,6 +13,6 @@
     "deploy": "node scripts/workshop.mjs deploy",
     "set-password": "node scripts/workshop.mjs set-password",
     "smoke": "node scripts/workshop.mjs smoke",
-    "test": "node --test scripts/workshop.test.mjs"
+    "test": "node --test scripts/workshop.test.mjs examples/session-capture/capture.test.mjs"
   }
 }

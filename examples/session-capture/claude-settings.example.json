@@ -1,0 +1,24 @@
+{
+  "hooks": {
+    "Stop": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "node",
+            "args": [
+              "/ABSOLUTE/PATH/TO/vault-brain/examples/session-capture/capture.mjs",
+              "--client",
+              "claude-code",
+              "--vault",
+              "/ABSOLUTE/PATH/TO/LOCAL/OBSIDIAN/VAULT",
+              "--allow-root",
+              "/ABSOLUTE/PATH/TO/APPROVED/PROJECT"
+            ],
+            "timeout": 10
+          }
+        ]
+      }
+    ]
+  }
+}

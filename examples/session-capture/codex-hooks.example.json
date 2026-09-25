@@ -1,0 +1,17 @@
+{
+  "description": "Optional local Vault Brain session receipts. Edit paths before merging into your user hooks.",
+  "hooks": {
+    "Stop": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "node \"/ABSOLUTE/PATH/TO/vault-brain/examples/session-capture/capture.mjs\" --client codex --vault \"/ABSOLUTE/PATH/TO/LOCAL/OBSIDIAN/VAULT\" --allow-root \"/ABSOLUTE/PATH/TO/APPROVED/PROJECT\"",
+            "commandWindows": "node \"C:/ABSOLUTE/PATH/TO/vault-brain/examples/session-capture/capture.mjs\" --client codex --vault \"C:/ABSOLUTE/PATH/TO/LOCAL/OBSIDIAN/VAULT\" --allow-root \"C:/ABSOLUTE/PATH/TO/APPROVED/PROJECT\"",
+            "timeout": 10
+          }
+        ]
+      }
+    ]
+  }
+}

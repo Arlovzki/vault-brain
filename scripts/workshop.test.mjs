@@ -8,6 +8,7 @@ import {
   assertDefaultWorkspaceOnly,
   classifyAwsLookupError,
   migrationDecision,
+  parseOptions,
   parseTfvars,
   parseVersion,
   plannedIdentityFromJson,
@@ -47,6 +48,14 @@ test("version parsing enforces the documented minimums", () => {
   assert.equal(versionAtLeast("1.15.8", "1.10.0"), true);
   assert.equal(versionAtLeast("1.9.8", "1.10.0"), false);
   assert.equal(versionAtLeast("22.0.0", "22.0.0"), true);
+});
+
+test("web clients are preflight choices and Claude Code remains explicit", () => {
+  for (const client of ["claude", "claude-web", "chatgpt", "claude-code"]) {
+    assert.equal(parseOptions(["--client", client]).client, client);
+  }
+  assert.equal(parseOptions([]).client, "");
+  assert.throws(() => parseOptions(["--client", "unknown"]), /claude-web, chatgpt, or claude-code/);
 });
 
 test("state backend names and configuration are deterministic and bounded", () => {
