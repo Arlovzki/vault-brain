@@ -11,10 +11,12 @@ import {
   parseTfvars,
   parseVersion,
   plannedIdentityFromJson,
+  recoveryLocalStateText,
   renderBackendConfig,
   renderExpectedAccountConfig,
   resolveCommand,
   s3ListingHasMarkdown,
+  sameStatePayload,
   stateHistoryHasKey,
   stateBucketName,
   validSmokeKey,
@@ -72,6 +74,33 @@ test("state migration decisions fail closed on conflicts and orphaned buckets", 
   assert.equal(migrationDecision({ localState: false, remoteState: true, bucketExists: true }), "remote");
   assert.equal(migrationDecision({ localState: true, remoteState: true, bucketExists: true }), "conflict");
   assert.equal(migrationDecision({ localState: false, remoteState: false, bucketExists: true }), "orphaned");
+});
+
+test("state migration accepts rewritten identity only when the full payload matches", () => {
+  const source = {
+    version: 4,
+    terraform_version: "1.15.8",
+    lineage: "original-lineage",
+    serial: 9,
+    outputs: { state_bucket: { value: "demo-tfstate", type: "string" } },
+    resources: [{ type: "aws_s3_bucket", name: "terraform_state", instances: [{ attributes: { id: "demo-tfstate" } }] }],
+    check_results: [],
+  };
+  const migrated = { ...source, lineage: "new-lineage", serial: 1 };
+  const sourceText = JSON.stringify(source);
+  assert.equal(sameStatePayload(sourceText, JSON.stringify(migrated)), true);
+  assert.equal(sameStatePayload(sourceText, JSON.stringify({ ...migrated, resources: [] })), false);
+  assert.equal(sameStatePayload(sourceText, JSON.stringify({ ...migrated, outputs: {} })), false);
+  assert.equal(sameStatePayload(sourceText, JSON.stringify({ ...migrated, check_results: ["changed"] })), false);
+});
+
+test("interrupted migration reads only a valid backup behind an empty active state", () => {
+  const valid = JSON.stringify({ lineage: "original-lineage", serial: 9, resources: [] });
+  assert.equal(recoveryLocalStateText("", valid), valid);
+  assert.equal(recoveryLocalStateText(valid), valid);
+  assert.throws(() => recoveryLocalStateText("", null), /migration backup is missing/);
+  assert.throws(() => recoveryLocalStateText("", "not-json"), /migration backup.*unreadable/);
+  assert.throws(() => recoveryLocalStateText("not-json", valid), /Local Terraform state is unreadable/);
 });
 
 test("S3 lookup errors never treat access denial as a missing bucket", () => {

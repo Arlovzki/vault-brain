@@ -153,9 +153,12 @@ ignored generated file binds the AWS provider to that same account for plans,
 applies, and teardown. Neither file contains AWS access keys, secret keys, or
 session tokens.
 
-After verifying state lineage and serial, the runner renames local source and
-backup files as ignored migration-recovery copies. Move those copies into
-encrypted storage or delete them after independently confirming the remote
+After verifying that the complete state payload matches the S3 copy, the runner
+renames local source and backup files as ignored migration-recovery copies.
+Terraform can rewrite lineage and serial during this copy. If the process stops
+after copying, rerun bootstrap-state: it compares the backup with S3 and asks
+for an explicit `RECONNECT` before using the remote state. Move recovery copies
+into encrypted storage or delete them after independently confirming the remote
 state. They must never be committed.
 
 Continue only when the command prints `STATE BACKEND READY`. Rerunning the same

@@ -17,6 +17,7 @@ import os from "node:os";
 import path from "node:path";
 import { createInterface } from "node:readline/promises";
 import { fileURLToPath, pathToFileURL } from "node:url";
+import { isDeepStrictEqual } from "node:util";
 
 const SCRIPT_DIR = path.dirname(fileURLToPath(import.meta.url));
 const ROOT = path.resolve(SCRIPT_DIR, "..");
@@ -229,8 +230,28 @@ function stateIdentity(text, source) {
   }
 }
 
-function sameStateIdentity(left, right) {
-  return left.lineage === right.lineage && left.serial === right.serial;
+export function sameStatePayload(leftText, rightText) {
+  stateIdentity(leftText, "Source");
+  stateIdentity(rightText, "Destination");
+  const left = JSON.parse(leftText);
+  const right = JSON.parse(rightText);
+  delete left.lineage;
+  delete left.serial;
+  delete right.lineage;
+  delete right.serial;
+  return isDeepStrictEqual(left, right);
+}
+
+export function recoveryLocalStateText(activeText, backupText = null) {
+  if (activeText.length > 0) {
+    stateIdentity(activeText, "Local");
+    return activeText;
+  }
+  if (backupText === null) {
+    throw new CliError("The local state is empty and its migration backup is missing. Stop and inspect both backends.");
+  }
+  stateIdentity(backupText, "Local migration backup");
+  return backupText;
 }
 
 function writeGeneratedFile(filePath, content) {
@@ -528,7 +549,7 @@ function terraformStatePull(directory) {
   }).stdout;
 }
 
-function remoteStateIdentity({ bucket, key, profile, region, accountId, label }) {
+function remoteStateText({ bucket, key, profile, region, accountId, label }) {
   const temporaryDirectory = mkdtempSync(path.join(os.tmpdir(), "vault-brain-state-read-"));
   const temporaryState = path.join(temporaryDirectory, "terraform.tfstate");
   try {
@@ -551,15 +572,21 @@ function remoteStateIdentity({ bucket, key, profile, region, accountId, label })
       ],
       { timeout: 60_000, sensitiveOutput: true },
     );
-    return stateIdentity(readFileSync(temporaryState, "utf8"), `Remote ${label}`);
+    const stateText = readFileSync(temporaryState, "utf8");
+    stateIdentity(stateText, `Remote ${label}`);
+    return stateText;
   } finally {
     rmSync(temporaryDirectory, { recursive: true, force: true });
   }
 }
 
 async function recoverInterruptedMigration({ localStatePath, bucket, key, config, identity, label }) {
-  const local = stateIdentity(readFileSync(localStatePath, "utf8"), `Local ${label}`);
-  const remote = remoteStateIdentity({
+  const activeText = readFileSync(localStatePath, "utf8");
+  const backupPath = `${localStatePath}.backup`;
+  const backupText = existsSync(backupPath) ? readFileSync(backupPath, "utf8") : null;
+  const localText = recoveryLocalStateText(activeText, backupText);
+  const local = stateIdentity(localText, `Local ${label}`);
+  const remoteText = remoteStateText({
     bucket,
     key,
     profile: config.profile,
@@ -567,10 +594,14 @@ async function recoverInterruptedMigration({ localStatePath, bucket, key, config
     accountId: identity.account,
     label,
   });
-  if (local.lineage !== remote.lineage || remote.serial < local.serial) {
+  const remote = stateIdentity(remoteText, `Remote ${label}`);
+  const samePayload = sameStatePayload(localText, remoteText);
+  const newerSameLineage = local.lineage === remote.lineage && remote.serial > local.serial;
+  if (!samePayload && !newerSameLineage) {
     throw new CliError(`Local and remote ${label} states conflict. The runner will not overwrite either state.`);
   }
-  const answer = await askVisible(`\nThe remote ${label} state contains the same lineage and an equal or newer serial. Type RECONNECT to keep it as the source of truth: `);
+  const detail = samePayload ? "the same state content" : "a newer snapshot of the same lineage";
+  const answer = await askVisible(`\nThe remote ${label} state contains ${detail}. Type RECONNECT to keep it as the source of truth: `);
   if (answer !== "RECONNECT") throw new CliError(`${label} state reconnection was not confirmed. Both state copies were kept.`);
   preserveMigratedLocalState(localStatePath, label);
 }
@@ -579,7 +610,7 @@ function preserveMigratedLocalState(localStatePath, label) {
   if (!existsSync(localStatePath)) {
     throw new CliError(`The active local ${label} state disappeared before it could be preserved. Stop and verify both backends.`);
   }
-  const timestamp = new Date().toISOString().replace(/[^0-9TZ]/g, "");
+  const timestamp = `${new Date().toISOString().replace(/[^0-9TZ]/g, "")}-${randomUUID().slice(0, 8)}`;
   const candidates = [
     { source: localStatePath, suffix: "migration-backup" },
     { source: `${localStatePath}.backup`, suffix: "pre-migration-backup" },
@@ -588,6 +619,7 @@ function preserveMigratedLocalState(localStatePath, label) {
   for (const candidate of candidates) {
     if (!existsSync(candidate.source)) continue;
     const destination = `${localStatePath}.${candidate.suffix}-${timestamp}`;
+    if (existsSync(destination)) throw new CliError(`Migration recovery destination already exists: ${destination}`);
     renameSync(candidate.source, destination);
     preserved.push(destination);
   }
@@ -641,7 +673,8 @@ function connectRemoteBackend({ directory, backendConfig, expected, localStatePa
 }
 
 function migrateState({ directory, backendConfig, localStatePath, expected, label }) {
-  const before = stateIdentity(readFileSync(localStatePath, "utf8"), `Local ${label}`);
+  const beforeText = readFileSync(localStatePath, "utf8");
+  stateIdentity(beforeText, `Local ${label}`);
   const cachedKind = cachedBackendKind(directory, expected, localStatePath, label);
   if (cachedKind === "expected") {
     throw new CliError(`${label} already points at the destination backend, but its current S3 object is absent while local state remains. Restore a prior S3 version or follow a manual recovery runbook; the runner will not push local state automatically.`);
@@ -672,8 +705,8 @@ function migrateState({ directory, backendConfig, localStatePath, expected, labe
   if (!backendMatches(directory, expected)) {
     throw new CliError(`${label} backend metadata does not match the verified bucket, key, profile, and region.`);
   }
-  const after = stateIdentity(terraformStatePull(directory), `Remote ${label}`);
-  if (!sameStateIdentity(before, after)) {
+  const afterText = terraformStatePull(directory);
+  if (!sameStatePayload(beforeText, afterText)) {
     throw new CliError(`${label} state migration could not be verified. Keep the local backup and stop.`);
   }
   preserveMigratedLocalState(localStatePath, label);
@@ -854,7 +887,7 @@ async function preflight(options = {}, mode = {}) {
 
   if (!skipClient) {
     if (options.client === "chatgpt") {
-      check("Open ChatGPT and verify that Developer mode and Plugins are available to this account.");
+      check("Open ChatGPT Plugins and verify Add > Create MCP App is available to this account.");
     } else {
       const claude = commandVersion("claude");
       if (claude.ok) {
@@ -862,7 +895,7 @@ async function preflight(options = {}, mode = {}) {
       } else if (options.client === "claude") {
         fail("Claude Code was selected but its claude command is missing.");
       } else {
-        check("Claude Code was not detected. Verify ChatGPT Developer mode manually if ChatGPT is your client.");
+        check("Claude Code was not detected. Verify ChatGPT Plugins > Add > Create MCP App if ChatGPT is your client.");
       }
     }
   }
