@@ -55,9 +55,10 @@ The server limits MCP file access to Markdown notes, excludes Obsidian configura
 - At least one account that can add a custom remote MCP connection in Claude web or ChatGPT web. Check this in the browser before the workshop; account and workspace controls may differ.
 - Obsidian and the Remotely Save community plugin for the live workshop's two-way sync activity
 
-The workshop runner is written in Node.js. The same `npm run` commands work in
-Windows PowerShell, Windows Command Prompt, macOS, and Linux. Bash, `curl`, and
-other Unix-only command-line tools are not required.
+The workshop runner is written in Node.js and works in Windows PowerShell,
+Windows Command Prompt, macOS, and Linux. Bash, `curl`, and other Unix-only
+command-line tools are not required. If PowerShell blocks `npm.ps1`, use the
+fallback in Troubleshooting.
 
 ## 1. Clone and run the preflight checks
 
@@ -347,6 +348,18 @@ Set these values in `terraform/terraform.tfvars`:
 | `oauth_callback_port` | `9000` | Loopback callback port used by CLI MCP clients. |
 
 ## Troubleshooting
+
+**PowerShell says scripts are disabled when running npm.** PowerShell may block
+`npm.ps1` before the workshop runner starts. Use `npm.cmd` instead without
+changing your execution policy:
+
+```powershell
+npm.cmd run preflight -- --fix --profile YOUR_AWS_PROFILE --client claude-web
+```
+
+Replace the profile name and use `chatgpt` instead of `claude-web` if that is
+your live client. For every later workshop command in PowerShell, replace
+`npm run` with `npm.cmd run` too.
 
 **The client shows old or missing tools.** Disconnect and reconnect the MCP server. Claude Code users can also run `claude mcp list` to check its state.
 
